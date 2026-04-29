@@ -5,18 +5,18 @@ const multer = require("multer");
 const app = express();
 app.use(express.json());
 
-// 🔐 Firebase init
-const serviceAccount = require("./serviceAccountKey.json");
+// 🔐 Firebase init (ENV based - Railway safe)
+const serviceAccount = JSON.parse(process.env.FIREBASE_KEY);
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  storageBucket: "<YOUR_BUCKET>.appspot.com"
+  storageBucket: process.env.BUCKET
 });
 
 const db = admin.database();
 const bucket = admin.storage().bucket();
 
-// 📂 image upload config
+// 📂 image upload
 const upload = multer({ storage: multer.memoryStorage() });
 
 
@@ -100,6 +100,7 @@ app.post("/create-admin", upload.single("logo"), async (req, res) => {
     res.json({ msg: "Created (Pending Approval)", logo: logoUrl });
 
   } catch (err) {
+    console.error(err);
     res.status(500).json({ msg: err.message });
   }
 });
@@ -134,7 +135,6 @@ app.post("/login-admin", async (req, res) => {
       return res.status(403).json({ msg: "Account blocked" });
     }
 
-    // ✅ success
     res.json({
       msg: "Login success",
       uid: user.admin_uid,
@@ -149,6 +149,8 @@ app.post("/login-admin", async (req, res) => {
 
 
 // ================= START SERVER =================
-app.listen(3000, () => {
-  console.log("Server running on port 3000");
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log("Server running on port " + PORT);
 });
