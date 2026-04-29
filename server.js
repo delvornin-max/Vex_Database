@@ -448,18 +448,34 @@ app.get("/get-balance/:uid", async (req, res) => {
 
 
 
+// 🔥 VERY IMPORTANT (top of file, before routes)
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+
 // ================= WRITE (Generate Referral) =================
 app.post("/generate-referral", async (req, res) => {
   try {
+    console.log("BODY =>", req.body); // 🔥 debug
+
     let { money, expiry, role } = req.body;
 
-    // 🔥 FIX: only required fields
-    if (!money || !expiry) {
+    // 🔥 strong validation
+    if (money === undefined || expiry === undefined) {
       return res.status(400).json({ msg: "Money and expiry required" });
     }
 
-    // 🔥 FIX: normalize role
+    // normalize
+    money = Number(money);
     role = (role || "admin").toLowerCase();
+
+    if (isNaN(money)) {
+      return res.status(400).json({ msg: "Invalid money" });
+    }
+
+    if (isNaN(new Date(expiry).getTime())) {
+      return res.status(400).json({ msg: "Invalid expiry" });
+    }
 
     if (!["admin", "reseller"].includes(role)) {
       return res.status(400).json({ msg: "Invalid role" });
@@ -478,7 +494,7 @@ app.post("/generate-referral", async (req, res) => {
 
     await db.ref("referals/" + referalHash).set({
       code,
-      money: Number(money),
+      money,
       expiry,
       used: false,
       role
@@ -490,6 +506,7 @@ app.post("/generate-referral", async (req, res) => {
     });
 
   } catch (e) {
+    console.error("ERROR =>", e);
     return res.status(500).json({ error: e.toString() });
   }
 });
@@ -500,7 +517,7 @@ app.get("/check-referral/:code", async (req, res) => {
   try {
     const code = req.params.code;
 
-    const snap = await db.ref("referals").get(); // 🔥 FIX
+    const snap = await db.ref("referals").get();
 
     if (!snap.exists()) {
       return res.status(404).json({ msg: "No referrals found" });
@@ -538,6 +555,7 @@ app.get("/check-referral/:code", async (req, res) => {
     });
 
   } catch (e) {
+    console.error("ERROR =>", e);
     return res.status(500).json({ error: e.toString() });
   }
 });
@@ -546,6 +564,8 @@ app.get("/check-referral/:code", async (req, res) => {
 // ================= MARK USED =================
 app.post("/use-referral", async (req, res) => {
   try {
+    console.log("USE BODY =>", req.body);
+
     const { id } = req.body;
 
     if (!id) {
@@ -553,7 +573,6 @@ app.post("/use-referral", async (req, res) => {
     }
 
     const ref = db.ref("referals/" + id);
-
     const snap = await ref.get();
 
     if (!snap.exists()) {
@@ -572,6 +591,7 @@ app.post("/use-referral", async (req, res) => {
     });
 
   } catch (e) {
+    console.error("ERROR =>", e);
     return res.status(500).json({ error: e.toString() });
   }
 });
