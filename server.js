@@ -5,6 +5,8 @@ const multer = require("multer");
 const app = express();
 app.use(express.json());
 
+const { getDatabase } = require("firebase-admin/database");
+
 // ================= FIREBASE INIT =================
 let serviceAccount;
 
@@ -21,7 +23,7 @@ try {
   process.exit(1);
 }
 
-// 🔥 FORCE VALUES (no ENV dependency issues)
+// 🔥 FIXED VALUES
 const DB_URL = "https://nextlevelcheats-94b66-default-rtdb.firebaseio.com";
 const BUCKET = "nextlevelcheats-94b66.appspot.com";
 
@@ -31,8 +33,13 @@ admin.initializeApp({
   storageBucket: BUCKET
 });
 
-// 🔥 IMPORTANT FIX (explicit DB instance)
-const db = admin.database(DB_URL);
+// ❌ REMOVE THIS
+// const db = admin.database(DB_URL);
+
+// ✅ USE THIS
+const db = getDatabase();
+
+// storage same
 const bucket = admin.storage().bucket();
 
 // ================= MULTER =================
