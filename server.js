@@ -225,10 +225,12 @@ app.post("/generate-keys", async (req, res) => {
 
     for (let i = 0; i < keys; i++) {
 
-      const keyId = db.child("Main Admins")
-        .child(uid)
-        .child("keys")
-        .push().key;
+      const keyId = admin.database().ref("Main Admins")
+  .child(uid)
+  .child("keys")
+  .push().key;
+
+
 
       const randomPart = Math.random().toString(36).substring(2, 8).toUpperCase();
       const cleanTime = time.replace(" ", "");
