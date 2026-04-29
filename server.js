@@ -27,7 +27,7 @@ admin.initializeApp({
   storageBucket: "nextlevelcheats-94b66.firebasestorage.app"
 });
 
-const db = admin.database().ref();
+const db = admin.database();
 const bucket = admin.storage().bucket();
 
 // ================= MULTER =================
@@ -174,6 +174,7 @@ app.post("/login-admin", async (req, res) => {
 
 
 // ================= GENERATE KEYS =================
+// ================= GENERATE KEYS =================
 app.post("/generate-keys", async (req, res) => {
   try {
     const { uid, time, device, keyCount } = req.body;
@@ -182,7 +183,9 @@ app.post("/generate-keys", async (req, res) => {
       return res.status(400).json({ msg: "Missing fields" });
     }
 
-    const adminRef = db.child(`Main Admins/${uid}`);
+    const rootRef = admin.database().ref();
+    const adminRef = rootRef.child(`Main Admins/${uid}`);
+
     const snap = await adminRef.get();
 
     if (!snap.exists()) {
@@ -192,6 +195,7 @@ app.post("/generate-keys", async (req, res) => {
     const adminData = snap.val();
     const currentMoney = adminData.money || 0;
 
+    // ===== PRICE =====
     const base = {
       "1 Day": 100,
       "7 Day": 500,
@@ -213,6 +217,7 @@ app.post("/generate-keys", async (req, res) => {
       return res.status(400).json({ msg: "Insufficient balance" });
     }
 
+    // ===== TIME =====
     const daysMap = {
       "1 Day": 1,
       "7 Day": 7,
@@ -227,7 +232,7 @@ app.post("/generate-keys", async (req, res) => {
 
     for (let i = 0; i < keys; i++) {
 
-      const keyId = db
+      const keyId = rootRef
         .child("Main Admins")
         .child(uid)
         .child("keys")
@@ -239,10 +244,10 @@ app.post("/generate-keys", async (req, res) => {
 
       updates[`Main Admins/${uid}/keys/${keyId}`] = {
         key: keyValue,
-        time,
-        days,
+        time: time,
+        days: days,
         duration_ms: durationMs,
-        device,
+        device: device,
         devices_allowed: deviceLimit,
         used_count: 0,
         used_devices: {},
@@ -254,9 +259,11 @@ app.post("/generate-keys", async (req, res) => {
       };
     }
 
+    // 💰 deduct money
     updates[`Main Admins/${uid}/money`] = currentMoney - totalCost;
 
-    await db.update(updates);
+    // ✅ CORRECT UPDATE
+    await rootRef.update(updates);
 
     return res.json({
       msg: "Keys Generated",
