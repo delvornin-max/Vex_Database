@@ -4,7 +4,7 @@ const multer = require("multer");
 
 const app = express();
 app.use(express.json());
-
+app.use(express.urlencoded({ extended: true }));
 // ================= FIREBASE INIT =================
 let serviceAccount;
 
@@ -448,9 +448,7 @@ app.get("/get-balance/:uid", async (req, res) => {
 
 
 
-// 🔥 VERY IMPORTANT (top of file, before routes)
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+
 
 
 // ================= WRITE (Generate Referral) =================
