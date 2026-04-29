@@ -338,7 +338,8 @@ app.post("/generate-referral", async (req, res) => {
   }
 });
 
-// 🔥 CODE GENERATOR
+// 🔥 CODE GENERATORgit add .
+
 function generateCode() {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   let code = "";
@@ -347,6 +348,45 @@ function generateCode() {
   }
   return code;
 }
+
+
+
+// ================= GET KEYS FULL =================
+app.get("/get-keys/:uid", async (req, res) => {
+  try {
+    const { uid } = req.params;
+
+    if (!uid) {
+      return res.status(400).json({ msg: "UID required" });
+    }
+
+    const snap = await db.ref(`Main Admins/${uid}/keys`).get();
+
+    if (!snap.exists()) {
+      return res.json({ keys: [] });
+    }
+
+    const data = snap.val();
+
+    // 🔥 object → array convert + id include
+    const keysArray = Object.keys(data).map(keyId => ({
+      id: keyId,
+      ...data[keyId]
+    }));
+
+    // 🔥 latest first
+    keysArray.sort((a, b) => b.created_at - a.created_at);
+
+    return res.json({
+      total: keysArray.length,
+      keys: keysArray
+    });
+
+  } catch (err) {
+    console.error("GET KEYS ERROR:", err);
+    return res.status(500).json({ msg: err.message });
+  }
+});
 
 // ================= START SERVER =================
 const PORT = process.env.PORT || 3000;
