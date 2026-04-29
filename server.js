@@ -1,5 +1,5 @@
 const express = require("express");
-const admin = require("firebase-admin");
+const { getDatabase } = require("firebase-admin/database");
 const multer = require("multer");
 
 const app = express();
