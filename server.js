@@ -451,13 +451,21 @@ app.get("/get-balance/:uid", async (req, res) => {
 // ================= WRITE (Generate Referral) =================
 app.post("/generate-referral", async (req, res) => {
   try {
-    const { money, expiry, role } = req.body;
+    let { money, expiry, role } = req.body;
 
-    if (!money || !expiry || !role) {
-      return res.status(400).json({ msg: "Missing fields" });
+    // 🔥 FIX: only required fields
+    if (!money || !expiry) {
+      return res.status(400).json({ msg: "Money and expiry required" });
     }
 
-    // 🔹 Generate Code (same logic as Flutter)
+    // 🔥 FIX: normalize role
+    role = (role || "admin").toLowerCase();
+
+    if (!["admin", "reseller"].includes(role)) {
+      return res.status(400).json({ msg: "Invalid role" });
+    }
+
+    // 🔹 Generate Code
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     const length = Math.floor(Math.random() * 3) + 5;
 
@@ -470,7 +478,7 @@ app.post("/generate-referral", async (req, res) => {
 
     await db.ref("referals/" + referalHash).set({
       code,
-      money,
+      money: Number(money),
       expiry,
       used: false,
       role
@@ -492,35 +500,34 @@ app.get("/check-referral/:code", async (req, res) => {
   try {
     const code = req.params.code;
 
-    const snap = await db.ref("referals").once("value");
+    const snap = await db.ref("referals").get(); // 🔥 FIX
 
     if (!snap.exists()) {
       return res.status(404).json({ msg: "No referrals found" });
     }
 
+    const allRefs = snap.val();
+
     let found = null;
 
-    snap.forEach(child => {
-      const data = child.val();
-
-      if (data.code === code) {
+    for (const key in allRefs) {
+      if (allRefs[key].code === code) {
         found = {
-          id: child.key,
-          ...data
+          id: key,
+          ...allRefs[key]
         };
+        break;
       }
-    });
+    }
 
     if (!found) {
       return res.status(404).json({ msg: "Invalid code" });
     }
 
-    // ❌ already used
     if (found.used) {
       return res.status(400).json({ msg: "Already used" });
     }
 
-    // ⏰ expiry check
     if (new Date(found.expiry) < new Date()) {
       return res.status(400).json({ msg: "Expired" });
     }
@@ -545,9 +552,19 @@ app.post("/use-referral", async (req, res) => {
       return res.status(400).json({ msg: "Missing id" });
     }
 
-    await db.ref("referals/" + id).update({
-      used: true
-    });
+    const ref = db.ref("referals/" + id);
+
+    const snap = await ref.get();
+
+    if (!snap.exists()) {
+      return res.status(404).json({ msg: "Referral not found" });
+    }
+
+    if (snap.val().used === true) {
+      return res.status(400).json({ msg: "Already used" });
+    }
+
+    await ref.update({ used: true });
 
     return res.json({
       success: true,
