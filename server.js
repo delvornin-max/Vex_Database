@@ -174,7 +174,6 @@ app.post("/login-admin", async (req, res) => {
 
 
 // ================= GENERATE KEYS =================
-// ================= GENERATE KEYS =================
 app.post("/generate-keys", async (req, res) => {
   try {
     const { uid, time, device, keyCount } = req.body;
@@ -183,9 +182,7 @@ app.post("/generate-keys", async (req, res) => {
       return res.status(400).json({ msg: "Missing fields" });
     }
 
-    const rootRef = admin.database().ref();
-    const adminRef = rootRef.child(`Main Admins/${uid}`);
-
+    const adminRef = db.ref(`Main Admins/${uid}`);
     const snap = await adminRef.get();
 
     if (!snap.exists()) {
@@ -195,7 +192,6 @@ app.post("/generate-keys", async (req, res) => {
     const adminData = snap.val();
     const currentMoney = adminData.money || 0;
 
-    // ===== PRICE =====
     const base = {
       "1 Day": 100,
       "7 Day": 500,
@@ -217,7 +213,6 @@ app.post("/generate-keys", async (req, res) => {
       return res.status(400).json({ msg: "Insufficient balance" });
     }
 
-    // ===== TIME =====
     const daysMap = {
       "1 Day": 1,
       "7 Day": 7,
@@ -232,8 +227,7 @@ app.post("/generate-keys", async (req, res) => {
 
     for (let i = 0; i < keys; i++) {
 
-      const keyId = rootRef
-        .child("Main Admins")
+      const keyId = db.ref("Main Admins")
         .child(uid)
         .child("keys")
         .push().key;
@@ -244,10 +238,10 @@ app.post("/generate-keys", async (req, res) => {
 
       updates[`Main Admins/${uid}/keys/${keyId}`] = {
         key: keyValue,
-        time: time,
-        days: days,
+        time,
+        days,
         duration_ms: durationMs,
-        device: device,
+        device,
         devices_allowed: deviceLimit,
         used_count: 0,
         used_devices: {},
@@ -259,11 +253,10 @@ app.post("/generate-keys", async (req, res) => {
       };
     }
 
-    // 💰 deduct money
     updates[`Main Admins/${uid}/money`] = currentMoney - totalCost;
 
-    // ✅ CORRECT UPDATE
-    await rootRef.update(updates);
+    // ✅ important
+    await db.ref().update(updates);
 
     return res.json({
       msg: "Keys Generated",
@@ -276,6 +269,84 @@ app.post("/generate-keys", async (req, res) => {
     return res.status(500).json({ msg: err.message });
   }
 });
+
+// ================= GENERATE REFERRAL WITH BALANCE =================
+app.post("/generate-referral", async (req, res) => {
+  try {
+    const { uid, money, expiry } = req.body;
+
+    // ✅ validation
+    if (!uid || !money || !expiry) {
+      return res.status(400).json({ msg: "Missing fields" });
+    }
+
+    const amount = parseInt(money);
+    if (isNaN(amount) || amount <= 0) {
+      return res.status(400).json({ msg: "Invalid money" });
+    }
+
+    const expiryTime = new Date(expiry).getTime();
+    if (expiryTime <= Date.now()) {
+      return res.status(400).json({ msg: "Invalid expiry" });
+    }
+
+    const adminRef = admin.database().ref("Main Admins").child(uid);
+    const balanceRef = adminRef.child("money");
+
+    // 🔥 ATOMIC TRANSACTION
+    const result = await balanceRef.transaction((currentBalance) => {
+      if (currentBalance === null) return; // abort
+
+      if (amount > currentBalance) {
+        return; // ❌ abort
+      }
+
+      return currentBalance - amount; // ✅ deduct
+    });
+
+    if (!result.committed) {
+      return res.status(400).json({ msg: "Insufficient balance" });
+    }
+
+    // ✅ balance deduct ho gaya
+
+    const code = generateCode();
+    const key = Date.now().toString();
+
+    const data = {
+      code: code,
+      money: amount,
+      role: "reseller",
+      expiry: new Date(expiryTime).toISOString(),
+      used: false,
+      created_at: Date.now(),
+    };
+
+    await adminRef
+      .child("referrals")
+      .child(key)
+      .update(data);
+
+    return res.json({
+      success: true,
+      code: code,
+      key: key,
+    });
+
+  } catch (err) {
+    return res.status(500).json({ msg: err.message });
+  }
+});
+
+// 🔥 CODE GENERATOR
+function generateCode() {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let code = "";
+  for (let i = 0; i < 6; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return code;
+}
 
 // ================= START SERVER =================
 const PORT = process.env.PORT || 3000;
