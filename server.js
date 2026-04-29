@@ -388,6 +388,31 @@ app.get("/get-keys/:uid", async (req, res) => {
   }
 });
 
+// ================= GET BALANCE =================
+app.get("/get-balance/:uid", async (req, res) => {
+  try {
+    const { uid } = req.params;
+
+    if (!uid) {
+      return res.status(400).json({ msg: "UID required" });
+    }
+
+    const snap = await db.ref(`Main Admins/${uid}/money`).get();
+
+    if (!snap.exists()) {
+      return res.json({ money: 0 });
+    }
+
+    return res.json({
+      money: snap.val()
+    });
+
+  } catch (err) {
+    console.error("GET BALANCE ERROR:", err);
+    return res.status(500).json({ msg: err.message });
+  }
+});
+
 // ================= START SERVER =================
 const PORT = process.env.PORT || 3000;
 
