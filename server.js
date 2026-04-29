@@ -21,19 +21,27 @@ try {
   process.exit(1);
 }
 
-// 🔥 FIXED CONFIG
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
   databaseURL: "https://nextlevelcheats-94b66-default-rtdb.firebaseio.com",
   storageBucket: "nextlevelcheats-94b66.appspot.com"
 });
 
-// ✅ STABLE (no modular)
 const db = admin.database();
 const bucket = admin.storage().bucket();
 
 // ================= MULTER =================
 const upload = multer({ storage: multer.memoryStorage() });
+
+
+// ================= ROOT =================
+app.get("/", (req, res) => {
+  res.send("🚀 Server running successfully");
+});
+
+app.get("/health", (req, res) => {
+  res.json({ status: "ok" });
+});
 
 
 // ================= CREATE ADMIN =================
@@ -77,7 +85,6 @@ app.post("/create-admin", upload.single("logo"), async (req, res) => {
       return res.status(400).json({ msg: "Referral expired" });
     }
 
-    // 📤 Upload logo
     const fileName = `admin_logos/${uid}.jpg`;
     const fileUpload = bucket.file(fileName);
 
