@@ -24,7 +24,7 @@ try {
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
   databaseURL: "https://nextlevelcheats-94b66-default-rtdb.firebaseio.com",
-  storageBucket: "nextlevelcheats-94b66.appspot.com"
+  storageBucket: "nextlevelcheats-94b66.firebasestorage.app"
 });
 
 const db = admin.database();
