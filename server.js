@@ -27,7 +27,7 @@ admin.initializeApp({
   storageBucket: "nextlevelcheats-94b66.firebasestorage.app"
 });
 
-const db = admin.database();
+const db = admin.database().ref();
 const bucket = admin.storage().bucket();
 
 // ================= MULTER =================
@@ -182,7 +182,7 @@ app.post("/generate-keys", async (req, res) => {
       return res.status(400).json({ msg: "Missing fields" });
     }
 
-    const adminRef = db.ref(`Main Admins/${uid}`);
+    const adminRef = db.child(`Main Admins/${uid}`);
     const snap = await adminRef.get();
 
     if (!snap.exists()) {
@@ -190,9 +190,8 @@ app.post("/generate-keys", async (req, res) => {
     }
 
     const adminData = snap.val();
-    let currentMoney = adminData.money || 0;
+    const currentMoney = adminData.money || 0;
 
-    // ===== PRICE CALCULATION =====
     const base = {
       "1 Day": 100,
       "7 Day": 500,
@@ -203,6 +202,10 @@ app.post("/generate-keys", async (req, res) => {
     const deviceLimit = parseInt(device.split(" ")[0]) || 0;
     const keys = parseInt(keyCount) || 0;
 
+    if (keys <= 0 || deviceLimit <= 0 || base <= 0) {
+      return res.status(400).json({ msg: "Invalid values" });
+    }
+
     const pricePerKey = base * deviceLimit;
     const totalCost = pricePerKey * keys;
 
@@ -210,7 +213,6 @@ app.post("/generate-keys", async (req, res) => {
       return res.status(400).json({ msg: "Insufficient balance" });
     }
 
-    // ===== TIME CALC =====
     const daysMap = {
       "1 Day": 1,
       "7 Day": 7,
@@ -225,12 +227,11 @@ app.post("/generate-keys", async (req, res) => {
 
     for (let i = 0; i < keys; i++) {
 
-      const keyId = admin.database().ref("Main Admins")
-  .child(uid)
-  .child("keys")
-  .push().key;
-
-
+      const keyId = db
+        .child("Main Admins")
+        .child(uid)
+        .child("keys")
+        .push().key;
 
       const randomPart = Math.random().toString(36).substring(2, 8).toUpperCase();
       const cleanTime = time.replace(" ", "");
@@ -238,10 +239,10 @@ app.post("/generate-keys", async (req, res) => {
 
       updates[`Main Admins/${uid}/keys/${keyId}`] = {
         key: keyValue,
-        time: time,
-        days: days,
+        time,
+        days,
         duration_ms: durationMs,
-        device: device,
+        device,
         devices_allowed: deviceLimit,
         used_count: 0,
         used_devices: {},
@@ -253,12 +254,11 @@ app.post("/generate-keys", async (req, res) => {
       };
     }
 
-    // deduct money
     updates[`Main Admins/${uid}/money`] = currentMoney - totalCost;
 
     await db.update(updates);
 
-    res.json({
+    return res.json({
       msg: "Keys Generated",
       total: keys,
       cost: totalCost
@@ -266,7 +266,7 @@ app.post("/generate-keys", async (req, res) => {
 
   } catch (err) {
     console.error("GENERATE KEY ERROR:", err);
-    res.status(500).json({ msg: err.message });
+    return res.status(500).json({ msg: err.message });
   }
 });
 
