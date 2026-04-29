@@ -123,6 +123,39 @@ app.post("/create-admin", upload.single("logo"), async (req, res) => {
   }
 });
 
+// ================= GET REFERRAL =================
+app.get("/get-referral", async (req, res) => {
+  try {
+    const { code } = req.query;
+
+    if (!code) {
+      return res.status(400).json({ msg: "Referral code required" });
+    }
+
+    const snap = await db.ref("referals").get();
+
+    if (!snap.exists()) {
+      return res.status(400).json({ msg: "No referrals found" });
+    }
+
+    const allRefs = snap.val();
+
+    for (const key in allRefs) {
+      if (allRefs[key].code === code) {
+        return res.json({
+          valid: true,
+          data: allRefs[key]
+        });
+      }
+    }
+
+    res.status(400).json({ valid: false, msg: "Invalid referral" });
+
+  } catch (err) {
+    res.status(500).json({ msg: err.message });
+  }
+});
+
 
 // ================= LOGIN ADMIN =================
 // ================= LOGIN ADMIN =================
@@ -410,6 +443,119 @@ app.get("/get-balance/:uid", async (req, res) => {
   } catch (err) {
     console.error("GET BALANCE ERROR:", err);
     return res.status(500).json({ msg: err.message });
+  }
+});
+
+
+
+// ================= WRITE (Generate Referral) =================
+app.post("/generate-referral", async (req, res) => {
+  try {
+    const { money, expiry, role } = req.body;
+
+    if (!money || !expiry || !role) {
+      return res.status(400).json({ msg: "Missing fields" });
+    }
+
+    // 🔹 Generate Code (same logic as Flutter)
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    const length = Math.floor(Math.random() * 3) + 5;
+
+    let code = "";
+    for (let i = 0; i < length; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+
+    const referalHash = Date.now().toString();
+
+    await db.ref("referals/" + referalHash).set({
+      code,
+      money,
+      expiry,
+      used: false,
+      role
+    });
+
+    return res.json({
+      success: true,
+      code
+    });
+
+  } catch (e) {
+    return res.status(500).json({ error: e.toString() });
+  }
+});
+
+
+// ================= READ (Check Referral) =================
+app.get("/check-referral/:code", async (req, res) => {
+  try {
+    const code = req.params.code;
+
+    const snap = await db.ref("referals").once("value");
+
+    if (!snap.exists()) {
+      return res.status(404).json({ msg: "No referrals found" });
+    }
+
+    let found = null;
+
+    snap.forEach(child => {
+      const data = child.val();
+
+      if (data.code === code) {
+        found = {
+          id: child.key,
+          ...data
+        };
+      }
+    });
+
+    if (!found) {
+      return res.status(404).json({ msg: "Invalid code" });
+    }
+
+    // ❌ already used
+    if (found.used) {
+      return res.status(400).json({ msg: "Already used" });
+    }
+
+    // ⏰ expiry check
+    if (new Date(found.expiry) < new Date()) {
+      return res.status(400).json({ msg: "Expired" });
+    }
+
+    return res.json({
+      success: true,
+      data: found
+    });
+
+  } catch (e) {
+    return res.status(500).json({ error: e.toString() });
+  }
+});
+
+
+// ================= MARK USED =================
+app.post("/use-referral", async (req, res) => {
+  try {
+    const { id } = req.body;
+
+    if (!id) {
+      return res.status(400).json({ msg: "Missing id" });
+    }
+
+    await db.ref("referals/" + id).update({
+      used: true
+    });
+
+    return res.json({
+      success: true,
+      msg: "Referral used"
+    });
+
+  } catch (e) {
+    return res.status(500).json({ error: e.toString() });
   }
 });
 
