@@ -5,7 +5,7 @@ const multer = require("multer");
 const app = express();
 app.use(express.json());
 
-// ================= FIREBASE INIT (SAFE) =================
+// ================= FIREBASE INIT =================
 let serviceAccount;
 
 try {
@@ -21,12 +21,18 @@ try {
   process.exit(1);
 }
 
+// 🔥 FORCE VALUES (no ENV dependency issues)
+const DB_URL = "https://nextlevelcheats-94b66-default-rtdb.firebaseio.com";
+const BUCKET = "nextlevelcheats-94b66.appspot.com";
+
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  storageBucket: process.env.BUCKET || "<YOUR_BUCKET>.appspot.com"
+  databaseURL: DB_URL,
+  storageBucket: BUCKET
 });
 
-const db = admin.database();
+// 🔥 IMPORTANT FIX (explicit DB instance)
+const db = admin.database(DB_URL);
 const bucket = admin.storage().bucket();
 
 // ================= MULTER =================
@@ -74,7 +80,7 @@ app.post("/create-admin", upload.single("logo"), async (req, res) => {
       return res.status(400).json({ msg: "Referral expired" });
     }
 
-    // Upload image
+    // 📤 Upload logo
     const fileName = `admin_logos/${uid}.jpg`;
     const fileUpload = bucket.file(fileName);
 
