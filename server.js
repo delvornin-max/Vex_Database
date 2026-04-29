@@ -452,18 +452,15 @@ app.get("/get-balance/:uid", async (req, res) => {
 
 
 // ================= WRITE (Generate Referral) =================
+// ================= GLOBAL REFERRAL =================
 app.post("/generate-referral", async (req, res) => {
   try {
-    console.log("BODY =>", req.body); // 🔥 debug
-
     let { money, expiry, role } = req.body;
 
-    // 🔥 strong validation
     if (money === undefined || expiry === undefined) {
       return res.status(400).json({ msg: "Money and expiry required" });
     }
 
-    // normalize
     money = Number(money);
     role = (role || "admin").toLowerCase();
 
@@ -479,32 +476,21 @@ app.post("/generate-referral", async (req, res) => {
       return res.status(400).json({ msg: "Invalid role" });
     }
 
-    // 🔹 Generate Code
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    const length = Math.floor(Math.random() * 3) + 5;
+    const code = generateCode();
+    const key = Date.now().toString();
 
-    let code = "";
-    for (let i = 0; i < length; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-
-    const referalHash = Date.now().toString();
-
-    await db.ref("referals/" + referalHash).set({
+    await db.ref("referals/" + key).set({
       code,
       money,
       expiry,
       used: false,
-      role
+      role,
+      created_at: Date.now()
     });
 
-    return res.json({
-      success: true,
-      code
-    });
+    return res.json({ success: true, code });
 
   } catch (e) {
-    console.error("ERROR =>", e);
     return res.status(500).json({ error: e.toString() });
   }
 });
@@ -512,50 +498,21 @@ app.post("/generate-referral", async (req, res) => {
 
 // ================= READ (Check Referral) =================
 app.get("/check-referral/:code", async (req, res) => {
-  try {
-    const code = req.params.code;
+  const snap = await db.ref("referals").get();
 
-    const snap = await db.ref("referals").get();
-
-    if (!snap.exists()) {
-      return res.status(404).json({ msg: "No referrals found" });
-    }
-
-    const allRefs = snap.val();
-
-    let found = null;
-
-    for (const key in allRefs) {
-      if (allRefs[key].code === code) {
-        found = {
-          id: key,
-          ...allRefs[key]
-        };
-        break;
-      }
-    }
-
-    if (!found) {
-      return res.status(404).json({ msg: "Invalid code" });
-    }
-
-    if (found.used) {
-      return res.status(400).json({ msg: "Already used" });
-    }
-
-    if (new Date(found.expiry) < new Date()) {
-      return res.status(400).json({ msg: "Expired" });
-    }
-
-    return res.json({
-      success: true,
-      data: found
-    });
-
-  } catch (e) {
-    console.error("ERROR =>", e);
-    return res.status(500).json({ error: e.toString() });
+  if (!snap.exists()) {
+    return res.status(404).json({ msg: "No referrals" });
   }
+
+  const all = snap.val();
+
+  for (const key in all) {
+    if (all[key].code === req.params.code) {
+      return res.json({ success: true, data: { id: key, ...all[key] } });
+    }
+  }
+
+  return res.status(404).json({ msg: "Invalid" });
 });
 
 
