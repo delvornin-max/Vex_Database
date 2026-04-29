@@ -1,11 +1,9 @@
 const express = require("express");
-const { getDatabase } = require("firebase-admin/database");
+const admin = require("firebase-admin");
 const multer = require("multer");
 
 const app = express();
 app.use(express.json());
-
-const { getDatabase } = require("firebase-admin/database");
 
 // ================= FIREBASE INIT =================
 let serviceAccount;
@@ -23,23 +21,15 @@ try {
   process.exit(1);
 }
 
-// 🔥 FIXED VALUES
-const DB_URL = "https://nextlevelcheats-94b66-default-rtdb.firebaseio.com";
-const BUCKET = "nextlevelcheats-94b66.appspot.com";
-
+// 🔥 FIXED CONFIG
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  databaseURL: DB_URL,
-  storageBucket: BUCKET
+  databaseURL: "https://nextlevelcheats-94b66-default-rtdb.firebaseio.com",
+  storageBucket: "nextlevelcheats-94b66.appspot.com"
 });
 
-// ❌ REMOVE THIS
-// const db = admin.database(DB_URL);
-
-// ✅ USE THIS
-const db = getDatabase();
-
-// storage same
+// ✅ STABLE (no modular)
+const db = admin.database();
 const bucket = admin.storage().bucket();
 
 // ================= MULTER =================
