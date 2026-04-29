@@ -125,26 +125,31 @@ app.post("/create-admin", upload.single("logo"), async (req, res) => {
 
 
 // ================= LOGIN ADMIN =================
+// ================= LOGIN ADMIN =================
 app.post("/login-admin", async (req, res) => {
   try {
     const { uid, password } = req.body;
 
+    // 🔴 Strict validation
     if (!uid || !password) {
-      return res.status(400).json({ msg: "Missing fields" });
+      return res.status(400).json({ msg: "UID and Password required" });
     }
 
+    // 🔍 Fetch user
     const snap = await db.ref(`Main Admins/${uid}`).get();
 
     if (!snap.exists()) {
-      return res.status(400).json({ msg: "Admin not found" });
+      return res.status(404).json({ msg: "Invalid UID" });
     }
 
     const user = snap.val();
 
+    // 🔐 Password match
     if (user.password !== password) {
-      return res.status(400).json({ msg: "Wrong password" });
+      return res.status(401).json({ msg: "Invalid Password" });
     }
 
+    // 🚫 Block conditions
     if (user.status === "pending") {
       return res.status(403).json({ msg: "Account pending approval" });
     }
@@ -153,7 +158,8 @@ app.post("/login-admin", async (req, res) => {
       return res.status(403).json({ msg: "Account blocked" });
     }
 
-    res.json({
+    // ✅ SUCCESS (only uid + password used)
+    return res.json({
       msg: "Login success",
       uid: user.admin_uid,
       name: user.name,
@@ -161,10 +167,106 @@ app.post("/login-admin", async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ msg: err.message });
+    console.error("LOGIN ERROR:", err);
+    return res.status(500).json({ msg: "Server error" });
   }
 });
 
+
+// ================= GENERATE KEYS =================
+app.post("/generate-keys", async (req, res) => {
+  try {
+    const { uid, time, device, keyCount } = req.body;
+
+    if (!uid || !time || !device || !keyCount) {
+      return res.status(400).json({ msg: "Missing fields" });
+    }
+
+    const adminRef = db.ref(`Main Admins/${uid}`);
+    const snap = await adminRef.get();
+
+    if (!snap.exists()) {
+      return res.status(404).json({ msg: "Admin not found" });
+    }
+
+    const adminData = snap.val();
+    let currentMoney = adminData.money || 0;
+
+    // ===== PRICE CALCULATION =====
+    const base = {
+      "1 Day": 100,
+      "7 Day": 500,
+      "15 Day": 900,
+      "30 Day": 1500
+    }[time] || 0;
+
+    const deviceLimit = parseInt(device.split(" ")[0]) || 0;
+    const keys = parseInt(keyCount) || 0;
+
+    const pricePerKey = base * deviceLimit;
+    const totalCost = pricePerKey * keys;
+
+    if (currentMoney < totalCost) {
+      return res.status(400).json({ msg: "Insufficient balance" });
+    }
+
+    // ===== TIME CALC =====
+    const daysMap = {
+      "1 Day": 1,
+      "7 Day": 7,
+      "15 Day": 15,
+      "30 Day": 30
+    };
+
+    const days = daysMap[time] || 0;
+    const durationMs = days * 24 * 60 * 60 * 1000;
+
+    const updates = {};
+
+    for (let i = 0; i < keys; i++) {
+
+      const keyId = db.child("Main Admins")
+        .child(uid)
+        .child("keys")
+        .push().key;
+
+      const randomPart = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const cleanTime = time.replace(" ", "");
+      const keyValue = `${uid}_${cleanTime}_${randomPart}`;
+
+      updates[`Main Admins/${uid}/keys/${keyId}`] = {
+        key: keyValue,
+        time: time,
+        days: days,
+        duration_ms: durationMs,
+        device: device,
+        devices_allowed: deviceLimit,
+        used_count: 0,
+        used_devices: {},
+        created_at: Date.now(),
+        is_used: false,
+        is_active: true,
+        expiry_at: 0,
+        price: pricePerKey
+      };
+    }
+
+    // deduct money
+    updates[`Main Admins/${uid}/money`] = currentMoney - totalCost;
+
+    await db.update(updates);
+
+    res.json({
+      msg: "Keys Generated",
+      total: keys,
+      cost: totalCost
+    });
+
+  } catch (err) {
+    console.error("GENERATE KEY ERROR:", err);
+    res.status(500).json({ msg: err.message });
+  }
+});
 
 // ================= START SERVER =================
 const PORT = process.env.PORT || 3000;
