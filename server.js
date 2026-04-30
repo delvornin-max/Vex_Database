@@ -551,6 +551,51 @@ app.post("/use-referral", async (req, res) => {
   }
 });
 
+// ================= GET CONFIG =================
+app.get("/get-config", async (req, res) => {
+  try {
+    const snap = await db.ref("config").get();
+
+    if (!snap.exists()) {
+      return res.status(404).json({ msg: "Config not found" });
+    }
+
+    return res.json(snap.val());
+
+  } catch (err) {
+    return res.status(500).json({ msg: err.message });
+  }
+});
+
+
+// ================= UPDATE CONFIG =================
+app.post("/set-config", async (req, res) => {
+  try {
+    const { attack_url, status, version } = req.body;
+
+    // 🔒 basic validation
+    if (!attack_url || typeof status !== "boolean" || version === undefined) {
+      return res.status(400).json({ msg: "Invalid data" });
+    }
+
+    const newConfig = {
+      attack_url,
+      status,
+      version
+    };
+
+    await db.ref("config").set(newConfig);
+
+    return res.json({
+      success: true,
+      config: newConfig
+    });
+
+  } catch (err) {
+    return res.status(500).json({ msg: err.message });
+  }
+});
+
 // ================= START SERVER =================
 const PORT = process.env.PORT || 3000;
 
