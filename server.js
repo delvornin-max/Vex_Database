@@ -1,3 +1,5 @@
+require("dotenv").config(); // 🔥 MUST ADD (LINE 1)
+console.log("ENV LOADED:", process.env.FIREBASE_KEY ? "YES" : "NO");
 const express = require("express");
 const admin = require("firebase-admin");
 const multer = require("multer");
