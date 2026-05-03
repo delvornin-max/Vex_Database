@@ -52,7 +52,68 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
+// ================= GET PANEL =================
+app.get("/get-panel", async (req, res) => {
+  try {
+    const snap = await db.ref("panel").get();
 
+    if (!snap.exists()) {
+      return res.status(404).json({
+        status: false,
+        msg: "Panel not found"
+      });
+    }
+
+    const data = snap.val();
+
+    return res.json({
+      status: true,
+      ...data
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      status: false,
+      msg: err.message
+    });
+  }
+});
+
+// ================= SET PANEL =================
+app.post("/set-panel", async (req, res) => {
+  try {
+    const { status, login_url, version } = req.body;
+
+    // 🔒 validation
+    if (typeof status !== "boolean") {
+      return res.status(400).json({ msg: "Invalid status" });
+    }
+
+    if (!login_url || typeof login_url !== "string") {
+      return res.status(400).json({ msg: "Invalid login_url" });
+    }
+
+    if (typeof version !== "number") {
+      return res.status(400).json({ msg: "Invalid version" });
+    }
+
+    const panelData = {
+      status,
+      login_url,
+      version
+    };
+
+    await db.ref("panel").set(panelData);
+
+    return res.json({
+      success: true,
+      panel: panelData
+    });
+
+  } catch (err) {
+    return res.status(500).json({ msg: err.message });
+  }
+});
 
 
 // ================= GET CONFIG =================
