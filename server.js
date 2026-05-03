@@ -66,9 +66,25 @@ app.get("/get-panel", async (req, res) => {
 
     const data = snap.val();
 
+    // optional: ?decoded=true → real URL dega
+    let login_url = data.login_url || "";
+
+    if (req.query.decoded === "true") {
+      try {
+        login_url = Buffer.from(login_url, "base64").toString("utf-8");
+      } catch (e) {
+        return res.status(500).json({
+          status: false,
+          msg: "Decode failed"
+        });
+      }
+    }
+
     return res.json({
       status: true,
-      ...data
+      status_flag: data.status === true,
+      login_url,
+      version: Number(data.version || 0)
     });
 
   } catch (err) {
@@ -79,10 +95,11 @@ app.get("/get-panel", async (req, res) => {
   }
 });
 
+
 // ================= SET PANEL =================
 app.post("/set-panel", async (req, res) => {
   try {
-    const { status, login_url, version } = req.body;
+    let { status, login_url, version } = req.body;
 
     // 🔒 validation
     if (typeof status !== "boolean") {
@@ -97,9 +114,18 @@ app.post("/set-panel", async (req, res) => {
       return res.status(400).json({ msg: "Invalid version" });
     }
 
+    // 🔥 normalize + encode
+    login_url = login_url.trim();
+
+    if (!login_url.startsWith("http")) {
+      return res.status(400).json({ msg: "URL must start with http/https" });
+    }
+
+    const encodedUrl = Buffer.from(login_url).toString("base64");
+
     const panelData = {
       status,
-      login_url,
+      login_url: encodedUrl,
       version
     };
 
@@ -115,10 +141,10 @@ app.post("/set-panel", async (req, res) => {
   }
 });
 
+
 app.get("/ping", (req, res) => {
   res.send("OK");
 });
-
 
 // ================= GET CONFIG =================
 app.get("/get-config", async (req, res) => {
