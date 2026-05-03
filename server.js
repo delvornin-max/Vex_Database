@@ -115,6 +115,10 @@ app.post("/set-panel", async (req, res) => {
   }
 });
 
+app.get("/ping", (req, res) => {
+  res.send("OK");
+});
+
 
 // ================= GET CONFIG =================
 app.get("/get-config", async (req, res) => {
