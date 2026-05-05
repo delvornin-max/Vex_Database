@@ -191,6 +191,70 @@ app.post("/set-config", async (req, res) => {
   }
 });
 
+// ================= GET ADMIN UPDATES =================
+app.get("/get-admin-updates", async (req, res) => {
+  try {
+    const snap = await db.ref("admin_updates").get();
+
+    if (!snap.exists()) {
+      return res.status(404).json({
+        status: false,
+        msg: "No admin updates found"
+      });
+    }
+
+    return res.json({
+      status: true,
+      data: snap.val()
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      status: false,
+      msg: err.message
+    });
+  }
+});
+
+
+// ================= SET ADMIN UPDATES =================
+app.post("/set-admin-updates", async (req, res) => {
+  try {
+    const { title, message, version } = req.body;
+
+    // 🔒 validation
+    if (!title || typeof title !== "string") {
+      return res.status(400).json({ msg: "Invalid title" });
+    }
+
+    if (!message || typeof message !== "string") {
+      return res.status(400).json({ msg: "Invalid message" });
+    }
+
+    if (typeof version !== "number") {
+      return res.status(400).json({ msg: "Invalid version" });
+    }
+
+    const updateData = {
+      title: title.trim(),
+      message: message.trim(),
+      version,
+      timestamp: Date.now()
+    };
+
+    await db.ref("admin_updates").set(updateData);
+
+    return res.json({
+      success: true,
+      update: updateData
+    });
+
+  } catch (err) {
+    return res.status(500).json({ msg: err.message });
+  }
+});
+
+
 // ================= START SERVER =================
 const PORT = process.env.PORT || 3000;
 
