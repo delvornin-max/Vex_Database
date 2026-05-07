@@ -254,6 +254,256 @@ app.post("/set-admin-updates", async (req, res) => {
   }
 });
 
+// ================= GET UPDATE =================
+app.get("/get-update", async (req, res) => {
+
+  try {
+
+    const snap =
+      await db.ref("update").get();
+
+    if (!snap.exists()) {
+
+      return res.status(404).json({
+
+        status: false,
+        msg: "Update config not found"
+      });
+    }
+
+    const data = snap.val();
+
+    let apkUrl =
+      data.apkUrl || "";
+
+    // optional:
+    // /get-update?decoded=true
+
+    if (req.query.decoded === "true") {
+
+      try {
+
+        apkUrl =
+          Buffer
+            .from(apkUrl, "base64")
+            .toString("utf-8");
+
+      } catch (e) {
+
+        return res.status(500).json({
+
+          status: false,
+          msg: "APK URL decode failed"
+        });
+      }
+    }
+
+    return res.json({
+
+      status: true,
+
+      data: {
+
+        rollout:
+          data.rollout === true,
+
+        forceUpdate:
+          data.forceUpdate === true,
+
+        versionCode:
+          Number(data.versionCode || 0),
+
+        versionName:
+          data.versionName || "",
+
+        apkUrl,
+
+        title:
+          data.title || "",
+
+        message:
+          data.message || ""
+      }
+    });
+
+  } catch (err) {
+
+    return res.status(500).json({
+
+      status: false,
+      msg: err.message
+    });
+  }
+});
+
+
+
+// ================= SET UPDATE =================
+app.post("/set-update", async (req, res) => {
+
+  try {
+
+    let {
+
+      rollout,
+      forceUpdate,
+
+      versionCode,
+      versionName,
+
+      apkUrl,
+      title,
+      message
+
+    } = req.body;
+
+
+    // ========= NORMALIZE =========
+
+    rollout =
+      rollout === true ||
+      rollout === "true";
+
+    forceUpdate =
+      forceUpdate === true ||
+      forceUpdate === "true";
+
+    versionCode =
+      Number(versionCode);
+
+
+    // ========= VALIDATION =========
+
+    if (isNaN(versionCode)) {
+
+      return res.status(400).json({
+
+        success: false,
+        msg: "Invalid versionCode"
+      });
+    }
+
+    if (!versionName ||
+        typeof versionName !== "string") {
+
+      return res.status(400).json({
+
+        success: false,
+        msg: "Invalid versionName"
+      });
+    }
+
+    if (!apkUrl ||
+        typeof apkUrl !== "string") {
+
+      return res.status(400).json({
+
+        success: false,
+        msg: "Invalid apkUrl"
+      });
+    }
+
+    if (!title ||
+        typeof title !== "string") {
+
+      return res.status(400).json({
+
+        success: false,
+        msg: "Invalid title"
+      });
+    }
+
+    if (!message ||
+        typeof message !== "string") {
+
+      return res.status(400).json({
+
+        success: false,
+        msg: "Invalid message"
+      });
+    }
+
+
+    // ========= CLEAN =========
+
+    apkUrl =
+      apkUrl.trim();
+
+    versionName =
+      versionName.trim();
+
+    title =
+      title.trim();
+
+    message =
+      message.trim();
+
+
+    // ========= URL CHECK =========
+
+    if (!apkUrl.startsWith("http")) {
+
+      return res.status(400).json({
+
+        success: false,
+        msg: "apkUrl must start with http/https"
+      });
+    }
+
+
+    // ========= ENCODE APK URL =========
+
+    const encodedApkUrl =
+
+      Buffer
+        .from(apkUrl)
+        .toString("base64");
+
+
+    // ========= FINAL DATA =========
+
+    const updateData = {
+
+      rollout,
+
+      forceUpdate,
+
+      versionCode,
+
+      versionName,
+
+      apkUrl:
+        encodedApkUrl,
+
+      title,
+
+      message
+    };
+
+
+    // ========= SAVE =========
+
+    await db
+      .ref("update")
+      .set(updateData);
+
+
+    return res.json({
+
+      success: true,
+
+      update: updateData
+    });
+
+  } catch (err) {
+
+    return res.status(500).json({
+
+      success: false,
+      msg: err.message
+    });
+  }
+});
 
 // ================= START SERVER =================
 const PORT = process.env.PORT || 3000;
