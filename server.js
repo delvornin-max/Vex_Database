@@ -366,6 +366,8 @@ app.get("/get-update", async (req, res) => {
 
 
 // ================= SET UPDATE =================
+// ================= SET UPDATE =================
+
 app.post("/set-update", async (req, res) => {
 
   try {
@@ -399,22 +401,28 @@ app.post("/set-update", async (req, res) => {
       Number(versionCode);
 
     versionName =
-      String(versionName || "").trim();
+      String(versionName || "")
+        .trim();
 
     apkUrl =
-      String(apkUrl || "").trim();
+      String(apkUrl || "")
+        .trim();
 
     title =
-      String(title || "").trim();
+      String(title || "")
+        .trim();
 
     message =
-      String(message || "").trim();
+      String(message || "")
+        .trim();
 
 
     // ========= VALIDATION =========
 
-    if (isNaN(versionCode) ||
-        versionCode < 1) {
+    if (
+      isNaN(versionCode) ||
+      versionCode < 1
+    ) {
 
       return res.status(400).json({
 
@@ -481,12 +489,30 @@ app.post("/set-update", async (req, res) => {
     }
 
 
+    // ========= BLOCK DOUBLE BASE64 =========
+
+    if (
+      apkUrl.startsWith("aHR0")
+    ) {
+
+      return res.status(400).json({
+
+        success: false,
+
+        msg: "Send RAW URL only. Do not send base64."
+      });
+    }
+
+
     // ========= ENCODE APK URL =========
 
     const encodedApkUrl =
 
       Buffer
-        .from(apkUrl)
+        .from(
+          apkUrl,
+          "utf8"
+        )
         .toString("base64");
 
 
@@ -526,13 +552,28 @@ app.post("/set-update", async (req, res) => {
 
       update: {
 
-        ...updateData,
+        rollout,
 
-        apkUrl
+        forceUpdate,
+
+        versionCode,
+
+        versionName,
+
+        apkUrl,
+
+        title,
+
+        message
       }
     });
 
   } catch (err) {
+
+    console.error(
+      "SET UPDATE ERROR:",
+      err
+    );
 
     return res.status(500).json({
 
