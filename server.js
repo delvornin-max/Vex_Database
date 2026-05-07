@@ -255,6 +255,8 @@ app.post("/set-admin-updates", async (req, res) => {
 });
 
 // ================= GET UPDATE =================
+// ================= GET UPDATE =================
+
 app.get("/get-update", async (req, res) => {
 
   try {
@@ -262,15 +264,16 @@ app.get("/get-update", async (req, res) => {
     const snap =
       await db.ref("update").get();
 
-    // ========= DEFAULT IF MISSING =========
+
+    // ========= DEFAULT =========
 
     if (!snap.exists()) {
 
       return res.json({
 
-        status: true,
+        success: true,
 
-        data: {
+        update: {
 
           rollout: false,
 
@@ -289,46 +292,18 @@ app.get("/get-update", async (req, res) => {
       });
     }
 
+
     const data =
       snap.val() || {};
 
-    let apkUrl =
-      data.apkUrl || "";
 
-
-    // ========= OPTIONAL DECODE =========
-
-    if (req.query.decoded === "true") {
-
-      try {
-
-        if (apkUrl) {
-
-          apkUrl =
-            Buffer
-              .from(apkUrl, "base64")
-              .toString("utf-8");
-        }
-
-      } catch (e) {
-
-        return res.status(500).json({
-
-          status: false,
-
-          msg: "APK URL decode failed"
-        });
-      }
-    }
-
-
-    // ========= FINAL RESPONSE =========
+    // ========= RESPONSE =========
 
     return res.json({
 
-      status: true,
+      success: true,
 
-      data: {
+      update: {
 
         rollout:
           data.rollout === true,
@@ -342,7 +317,9 @@ app.get("/get-update", async (req, res) => {
         versionName:
           String(data.versionName || ""),
 
-        apkUrl,
+        apkUrl:
+          String(data.apkUrl || "")
+            .trim(),
 
         title:
           String(data.title || ""),
@@ -354,9 +331,14 @@ app.get("/get-update", async (req, res) => {
 
   } catch (err) {
 
+    console.error(
+      "GET UPDATE ERROR:",
+      err
+    );
+
     return res.status(500).json({
 
-      status: false,
+      success: false,
 
       msg: err.message
     });
@@ -365,7 +347,6 @@ app.get("/get-update", async (req, res) => {
 
 
 
-// ================= SET UPDATE =================
 // ================= SET UPDATE =================
 
 app.post("/set-update", async (req, res) => {
@@ -489,31 +470,19 @@ app.post("/set-update", async (req, res) => {
     }
 
 
-    // ========= BLOCK DOUBLE BASE64 =========
+    // ========= APK CHECK =========
 
     if (
-      apkUrl.startsWith("aHR0")
+      !apkUrl.toLowerCase().includes(".apk")
     ) {
 
       return res.status(400).json({
 
         success: false,
 
-        msg: "Send RAW URL only. Do not send base64."
+        msg: "Only APK URL allowed"
       });
     }
-
-
-    // ========= ENCODE APK URL =========
-
-    const encodedApkUrl =
-
-      Buffer
-        .from(
-          apkUrl,
-          "utf8"
-        )
-        .toString("base64");
 
 
     // ========= FINAL DATA =========
@@ -528,12 +497,14 @@ app.post("/set-update", async (req, res) => {
 
       versionName,
 
-      apkUrl:
-        encodedApkUrl,
+      apkUrl,
 
       title,
 
-      message
+      message,
+
+      updatedAt:
+        Date.now()
     };
 
 
@@ -544,28 +515,19 @@ app.post("/set-update", async (req, res) => {
       .set(updateData);
 
 
+    console.log(
+      "UPDATE SAVED:",
+      updateData
+    );
+
+
     // ========= RESPONSE =========
 
     return res.json({
 
       success: true,
 
-      update: {
-
-        rollout,
-
-        forceUpdate,
-
-        versionCode,
-
-        versionName,
-
-        apkUrl,
-
-        title,
-
-        message
-      }
+      update: updateData
     });
 
   } catch (err) {
@@ -583,6 +545,7 @@ app.post("/set-update", async (req, res) => {
     });
   }
 });
+
 
 // ================= START SERVER =================
 const PORT = process.env.PORT || 3000;
