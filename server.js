@@ -262,41 +262,67 @@ app.get("/get-update", async (req, res) => {
     const snap =
       await db.ref("update").get();
 
+    // ========= DEFAULT IF MISSING =========
+
     if (!snap.exists()) {
 
-      return res.status(404).json({
+      return res.json({
 
-        status: false,
-        msg: "Update config not found"
+        status: true,
+
+        data: {
+
+          rollout: false,
+
+          forceUpdate: false,
+
+          versionCode: 0,
+
+          versionName: "",
+
+          apkUrl: "",
+
+          title: "",
+
+          message: ""
+        }
       });
     }
 
-    const data = snap.val();
+    const data =
+      snap.val() || {};
 
     let apkUrl =
       data.apkUrl || "";
 
-    // optional:
-    // /get-update?decoded=true
+
+    // ========= OPTIONAL DECODE =========
 
     if (req.query.decoded === "true") {
 
       try {
 
-        apkUrl =
-          Buffer
-            .from(apkUrl, "base64")
-            .toString("utf-8");
+        if (apkUrl) {
+
+          apkUrl =
+            Buffer
+              .from(apkUrl, "base64")
+              .toString("utf-8");
+        }
 
       } catch (e) {
 
         return res.status(500).json({
 
           status: false,
+
           msg: "APK URL decode failed"
         });
       }
     }
+
+
+    // ========= FINAL RESPONSE =========
 
     return res.json({
 
@@ -314,15 +340,15 @@ app.get("/get-update", async (req, res) => {
           Number(data.versionCode || 0),
 
         versionName:
-          data.versionName || "",
+          String(data.versionName || ""),
 
         apkUrl,
 
         title:
-          data.title || "",
+          String(data.title || ""),
 
         message:
-          data.message || ""
+          String(data.message || "")
       }
     });
 
@@ -331,6 +357,7 @@ app.get("/get-update", async (req, res) => {
     return res.status(500).json({
 
       status: false,
+
       msg: err.message
     });
   }
@@ -371,82 +398,85 @@ app.post("/set-update", async (req, res) => {
     versionCode =
       Number(versionCode);
 
+    versionName =
+      String(versionName || "").trim();
+
+    apkUrl =
+      String(apkUrl || "").trim();
+
+    title =
+      String(title || "").trim();
+
+    message =
+      String(message || "").trim();
+
 
     // ========= VALIDATION =========
 
-    if (isNaN(versionCode)) {
+    if (isNaN(versionCode) ||
+        versionCode < 1) {
 
       return res.status(400).json({
 
         success: false,
+
         msg: "Invalid versionCode"
       });
     }
 
-    if (!versionName ||
-        typeof versionName !== "string") {
+    if (!versionName) {
 
       return res.status(400).json({
 
         success: false,
-        msg: "Invalid versionName"
+
+        msg: "versionName required"
       });
     }
 
-    if (!apkUrl ||
-        typeof apkUrl !== "string") {
+    if (!apkUrl) {
 
       return res.status(400).json({
 
         success: false,
-        msg: "Invalid apkUrl"
+
+        msg: "apkUrl required"
       });
     }
 
-    if (!title ||
-        typeof title !== "string") {
+    if (!title) {
 
       return res.status(400).json({
 
         success: false,
-        msg: "Invalid title"
+
+        msg: "title required"
       });
     }
 
-    if (!message ||
-        typeof message !== "string") {
+    if (!message) {
 
       return res.status(400).json({
 
         success: false,
-        msg: "Invalid message"
+
+        msg: "message required"
       });
     }
 
 
-    // ========= CLEAN =========
+    // ========= URL VALIDATION =========
 
-    apkUrl =
-      apkUrl.trim();
-
-    versionName =
-      versionName.trim();
-
-    title =
-      title.trim();
-
-    message =
-      message.trim();
-
-
-    // ========= URL CHECK =========
-
-    if (!apkUrl.startsWith("http")) {
+    if (
+      !apkUrl.startsWith("http://") &&
+      !apkUrl.startsWith("https://")
+    ) {
 
       return res.status(400).json({
 
         success: false,
-        msg: "apkUrl must start with http/https"
+
+        msg: "apkUrl must start with http:// or https://"
       });
     }
 
@@ -488,11 +518,18 @@ app.post("/set-update", async (req, res) => {
       .set(updateData);
 
 
+    // ========= RESPONSE =========
+
     return res.json({
 
       success: true,
 
-      update: updateData
+      update: {
+
+        ...updateData,
+
+        apkUrl
+      }
     });
 
   } catch (err) {
@@ -500,6 +537,7 @@ app.post("/set-update", async (req, res) => {
     return res.status(500).json({
 
       success: false,
+
       msg: err.message
     });
   }
