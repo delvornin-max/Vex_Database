@@ -264,7 +264,6 @@ app.get("/get-update", async (req, res) => {
     const snap =
       await db.ref("update").get();
 
-
     // ========= DEFAULT =========
 
     if (!snap.exists()) {
@@ -274,6 +273,8 @@ app.get("/get-update", async (req, res) => {
         success: true,
 
         update: {
+
+          isNextLevel: false,
 
           rollout: false,
 
@@ -292,10 +293,8 @@ app.get("/get-update", async (req, res) => {
       });
     }
 
-
     const data =
       snap.val() || {};
-
 
     // ========= RESPONSE =========
 
@@ -304,6 +303,9 @@ app.get("/get-update", async (req, res) => {
       success: true,
 
       update: {
+
+        isNextLevel:
+          data.isNextLevel === true,
 
         rollout:
           data.rollout === true,
@@ -355,6 +357,8 @@ app.post("/set-update", async (req, res) => {
 
     let {
 
+      isNextLevel,
+
       rollout,
       forceUpdate,
 
@@ -367,8 +371,11 @@ app.post("/set-update", async (req, res) => {
 
     } = req.body;
 
-
     // ========= NORMALIZE =========
+
+    isNextLevel =
+      isNextLevel === true ||
+      isNextLevel === "true";
 
     rollout =
       rollout === true ||
@@ -396,7 +403,6 @@ app.post("/set-update", async (req, res) => {
     message =
       String(message || "")
         .trim();
-
 
     // ========= VALIDATION =========
 
@@ -453,7 +459,6 @@ app.post("/set-update", async (req, res) => {
       });
     }
 
-
     // ========= URL VALIDATION =========
 
     if (
@@ -469,7 +474,6 @@ app.post("/set-update", async (req, res) => {
       });
     }
 
-
     // ========= APK CHECK =========
 
     if (
@@ -484,10 +488,11 @@ app.post("/set-update", async (req, res) => {
       });
     }
 
-
     // ========= FINAL DATA =========
 
     const updateData = {
+
+      isNextLevel,
 
       rollout,
 
@@ -507,19 +512,16 @@ app.post("/set-update", async (req, res) => {
         Date.now()
     };
 
-
     // ========= SAVE =========
 
     await db
       .ref("update")
       .set(updateData);
 
-
     console.log(
       "UPDATE SAVED:",
       updateData
     );
-
 
     // ========= RESPONSE =========
 
@@ -541,6 +543,32 @@ app.post("/set-update", async (req, res) => {
 
       success: false,
 
+      msg: err.message
+    });
+  }
+});
+
+// ================= STATUS =================
+app.get("/status", async (req, res) => {
+  try {
+    const snap = await db.ref("status").get();
+
+    if (!snap.exists()) {
+      return res.json({
+        active_attacks: 0,
+        max_attacks: 55
+      });
+    }
+
+    const data = snap.val();
+
+    return res.json({
+      active_attacks: Number(data.active_attacks || 0),
+      max_attacks: Number(data.max_attacks || 55)
+    });
+
+  } catch (err) {
+    return res.status(500).json({
       msg: err.message
     });
   }
