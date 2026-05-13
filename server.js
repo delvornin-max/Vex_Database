@@ -549,40 +549,6 @@ app.post("/set-update", async (req, res) => {
 });
 
 // ================= STATUS =================
-app.get("/status", async (req, res) => {
-  try {
-
-    // Firebase se status fetch
-    const snap = await db.ref("status").get();
-
-    // Agar data nahi mila
-    if (!snap.exists()) {
-      return res.status(404).json({
-        success: false,
-        msg: "Status not found"
-      });
-    }
-
-    // Firebase data
-    const data = snap.val() || {};
-
-    // Server values return
-    return res.json({
-      success: true,
-      active_attacks: Number(data.active_attacks),
-      max_attacks: Number(data.max_attacks)
-    });
-
-  } catch (err) {
-
-    console.error("STATUS ERROR:", err);
-
-    return res.status(500).json({
-      success: false,
-      error: err.message
-    });
-  }
-});
 
 app.get("/status", async (req, res) => {
 
