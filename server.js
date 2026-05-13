@@ -554,28 +554,35 @@ app.get("/status", async (req, res) => {
 
   try {
 
-    const response =
-      await axios.get(
-        "https://nextbackend-production-db45.up.railway.app/status",
-        {
-          timeout: 10000
+    const response = await axios.get(
+      "https://nextbackend-production-db45.up.railway.app/status",
+      {
+        timeout: 10000,
+        headers: {
+          "User-Agent": "Mozilla/5.0"
         }
-      );
+      }
+    );
 
-    return res.json(response.data);
+    return res.status(200).json(
+      response.data
+    );
 
   } catch (err) {
 
     console.error(
       "STATUS FETCH ERROR:",
-      err.message
+      err.response?.data || err.message
     );
 
     return res.status(500).json({
 
       success: false,
 
-      error: "Failed to fetch status"
+      error:
+        err.response?.data ||
+        err.message ||
+        "Unknown error"
     });
   }
 });
