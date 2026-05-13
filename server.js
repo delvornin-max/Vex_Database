@@ -584,6 +584,36 @@ app.get("/status", async (req, res) => {
   }
 });
 
+app.get("/status", async (req, res) => {
+
+  try {
+
+    const response =
+      await axios.get(
+        "https://kil.teamvps.space/status",
+        {
+          timeout: 10000
+        }
+      );
+
+    return res.json(response.data);
+
+  } catch (err) {
+
+    console.error(
+      "STATUS FETCH ERROR:",
+      err.message
+    );
+
+    return res.status(500).json({
+
+      success: false,
+
+      error: "Failed to fetch status"
+    });
+  }
+});
+
 // ================= START SERVER =================
 const PORT = process.env.PORT || 3000;
 
