@@ -590,7 +590,7 @@ app.get("/status", async (req, res) => {
 
     const response =
       await axios.get(
-        "https://kil.teamvps.space/status",
+        "https://nextbackend-production-db45.up.railway.app/status",
         {
           timeout: 10000
         }
