@@ -588,6 +588,379 @@ app.get("/status", async (req, res) => {
   }
 });
 
+
+// ================= DELVORN UPDATE =================
+
+app.get("/get-delvorn", async (req, res) => {
+
+  try {
+
+    const snap =
+      await db.ref("delvorn").get();
+
+    // ========= DEFAULT =========
+
+    if (!snap.exists()) {
+
+      return res.json({
+
+        success: true,
+
+        update: {
+
+          rollout: false,
+
+          forceUpdate: false,
+
+          versionCode: 0,
+
+          versionName: "",
+
+          apkUrl: "",
+
+          title: "",
+
+          message: ""
+        }
+      });
+    }
+
+    const data =
+      snap.val() || {};
+
+    // ========= RESPONSE =========
+
+    return res.json({
+
+      success: true,
+
+      update: {
+
+        rollout:
+          data.rollout === true,
+
+        forceUpdate:
+          data.forceUpdate === true,
+
+        versionCode:
+          Number(data.versionCode || 0),
+
+        versionName:
+          String(data.versionName || ""),
+
+        apkUrl:
+          String(data.apkUrl || "")
+            .trim(),
+
+        title:
+          String(data.title || ""),
+
+        message:
+          String(data.message || "")
+      }
+    });
+
+  } catch (err) {
+
+    console.error(
+      "GET UPDATE ERROR:",
+      err
+    );
+
+    return res.status(500).json({
+
+      success: false,
+
+      msg: err.message
+    });
+  }
+});
+
+
+
+// ================= SET UPDATE =================
+
+app.post("/set-delvorn", async (req, res) => {
+
+  try {
+
+    let {
+
+
+      rollout,
+      forceUpdate,
+
+      versionCode,
+      versionName,
+
+      apkUrl,
+      title,
+      message
+
+    } = req.body;
+
+    // ========= NORMALIZE =========
+
+
+    rollout =
+      rollout === true ||
+      rollout === "true";
+
+    forceUpdate =
+      forceUpdate === true ||
+      forceUpdate === "true";
+
+    versionCode =
+      Number(versionCode);
+
+    versionName =
+      String(versionName || "")
+        .trim();
+
+    apkUrl =
+      String(apkUrl || "")
+        .trim();
+
+    title =
+      String(title || "")
+        .trim();
+
+    message =
+      String(message || "")
+        .trim();
+
+    // ========= VALIDATION =========
+
+    if (
+      isNaN(versionCode) ||
+      versionCode < 1
+    ) {
+
+      return res.status(400).json({
+
+        success: false,
+
+        msg: "Invalid versionCode"
+      });
+    }
+
+    if (!versionName) {
+
+      return res.status(400).json({
+
+        success: false,
+
+        msg: "versionName required"
+      });
+    }
+
+    if (!apkUrl) {
+
+      return res.status(400).json({
+
+        success: false,
+
+        msg: "apkUrl required"
+      });
+    }
+
+    if (!title) {
+
+      return res.status(400).json({
+
+        success: false,
+
+        msg: "title required"
+      });
+    }
+
+    if (!message) {
+
+      return res.status(400).json({
+
+        success: false,
+
+        msg: "message required"
+      });
+    }
+
+    // ========= URL VALIDATION =========
+
+    if (
+      !apkUrl.startsWith("http://") &&
+      !apkUrl.startsWith("https://")
+    ) {
+
+      return res.status(400).json({
+
+        success: false,
+
+        msg: "apkUrl must start with http:// or https://"
+      });
+    }
+
+    // ========= APK CHECK =========
+
+    if (
+      !apkUrl.toLowerCase().includes(".apk")
+    ) {
+
+      return res.status(400).json({
+
+        success: false,
+
+        msg: "Only APK URL allowed"
+      });
+    }
+
+    // ========= FINAL DATA =========
+
+    const updateData = {
+
+      rollout,
+
+      forceUpdate,
+
+      versionCode,
+
+      versionName,
+
+      apkUrl,
+
+      title,
+
+      message,
+
+      updatedAt:
+        Date.now()
+    };
+
+    // ========= SAVE =========
+
+    await db
+      .ref("delvorn")
+      .set(updateData);
+
+    console.log(
+      "UPDATE SAVED:",
+      updateData
+    );
+
+    // ========= RESPONSE =========
+
+    return res.json({
+
+      success: true,
+
+      update: updateData
+    });
+
+  } catch (err) {
+
+    console.error(
+      "SET UPDATE ERROR:",
+      err
+    );
+
+    return res.status(500).json({
+
+      success: false,
+
+      msg: err.message
+    });
+  }
+});
+
+// ================= GET PANEL =================
+app.get("/get-Dpanel", async (req, res) => {
+  try {
+    const snap = await db.ref("Dpanel").get();
+
+    if (!snap.exists()) {
+      return res.status(404).json({
+        status: false,
+        msg: "Panel not found"
+      });
+    }
+
+    const data = snap.val();
+
+    // optional: ?decoded=true → real URL dega
+    let login_url = data.login_url || "";
+
+    if (req.query.decoded === "true") {
+      try {
+        login_url = Buffer.from(login_url, "base64").toString("utf-8");
+      } catch (e) {
+        return res.status(500).json({
+          status: false,
+          msg: "Decode failed"
+        });
+      }
+    }
+
+    return res.json({
+      status: true,
+      status_flag: data.status === true,
+      login_url,
+      version: Number(data.version || 0)
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      status: false,
+      msg: err.message
+    });
+  }
+});
+
+
+// ================= SET PANEL =================
+app.post("/set-Dpanel", async (req, res) => {
+  try {
+    let { status, login_url, version } = req.body;
+
+    // 🔒 validation
+    if (typeof status !== "boolean") {
+      return res.status(400).json({ msg: "Invalid status" });
+    }
+
+    if (!login_url || typeof login_url !== "string") {
+      return res.status(400).json({ msg: "Invalid login_url" });
+    }
+
+    if (typeof version !== "number") {
+      return res.status(400).json({ msg: "Invalid version" });
+    }
+
+    // 🔥 normalize + encode
+    login_url = login_url.trim();
+
+    if (!login_url.startsWith("http")) {
+      return res.status(400).json({ msg: "URL must start with http/https" });
+    }
+
+    const encodedUrl = Buffer.from(login_url).toString("base64");
+
+    const panelData = {
+      status,
+      login_url: encodedUrl,
+      version
+    };
+
+    await db.ref("Dpanel").set(panelData);
+
+    return res.json({
+      success: true,
+      panel: panelData
+    });
+
+  } catch (err) {
+    return res.status(500).json({ msg: err.message });
+  }
+});
+
+
 // ================= START SERVER =================
 const PORT = process.env.PORT || 3000;
 
